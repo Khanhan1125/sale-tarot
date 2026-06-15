@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="description" content="Theo dõi doanh thu và tính lương tuần cá nhân - 25% hoa hồng">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>💰 Sale Tracker - Lương Tuần</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- ===== HEADER / SUMMARY CARD ===== -->
+    <header class="summary-card" id="summary-card">
+      <div class="summary-badge">HOA HỒNG 25%</div>
+      <p class="summary-label">Lương tuần này</p>
+      <h1 class="summary-amount" id="weekly-salary">0đ</h1>
+      <div class="summary-divider"></div>
+      <div class="summary-row">
+        <div class="summary-stat">
+          <span class="stat-value" id="weekly-order-count">0</span>
+          <span class="stat-label">đơn hàng</span>
+        </div>
+        <div class="summary-stat">
+          <span class="stat-value" id="weekly-revenue">0đ</span>
+          <span class="stat-label">doanh thu</span>
+        </div>
+      </div>
+      <button class="btn-reset" id="btn-reset">
+        <span class="btn-reset-icon">↻</span> Reset Tuần Mới
+      </button>
+    </header>
+
+    <!-- ===== DAY SELECTOR ===== -->
+    <section class="day-selector-wrapper">
+      <div class="day-selector" id="day-selector">
+        <!-- 7 day pills rendered by JS -->
+      </div>
+    </section>
+
+    <!-- ===== INPUT SECTION ===== -->
+    <section class="input-section glass-card">
+      <label class="input-label" for="txt-sale-amount">Nhập đơn hàng mới</label>
+      <div class="input-group">
+        <div class="input-wrapper" id="input-wrapper">
+          <span class="input-prefix">đ</span>
+          <input
+            type="number"
+            id="txt-sale-amount"
+            class="sale-input"
+            placeholder="0"
+            inputmode="numeric"
+            min="0"
+            autocomplete="off"
+          >
+        </div>
+        <button class="btn-add" id="btn-add">
+          <span class="btn-add-icon">+</span>
+          <span class="btn-add-text">Thêm</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ===== ORDER LIST ===== -->
+    <section class="order-section glass-card">
+      <div class="order-header">
+        <h2 class="section-title" id="order-list-title">📋 Đơn hàng trong ngày</h2>
+        <span class="order-count-badge" id="order-count-badge">0</span>
+      </div>
+      <div class="order-list" id="order-list">
+        <!-- Orders rendered by JS -->
+      </div>
+      <div class="daily-total" id="daily-total">
+        <span class="daily-total-label">💵 Hoa hồng hôm nay</span>
+        <span class="daily-total-amount" id="daily-total-amount">0đ</span>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Toast container -->
+  <div id="toast-container"></div>
+
+  <script src="storage.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
