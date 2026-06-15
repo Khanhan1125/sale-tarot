@@ -65,6 +65,31 @@
           <span class="btn-add-text">Thêm</span>
         </button>
       </div>
+
+      <!-- Tên khách hàng (không bắt buộc) -->
+      <div class="input-row">
+        <div class="input-wrapper input-wrapper-full">
+          <span class="input-prefix">👤</span>
+          <input
+            type="text"
+            id="txt-customer-name"
+            class="sale-input customer-input"
+            placeholder="Tên khách hàng (tuỳ chọn)"
+            autocomplete="off"
+          >
+        </div>
+      </div>
+
+      <!-- Bộ đếm Khách đánh giá -->
+      <div class="input-row review-row">
+        <span class="review-label">⭐ Khách đánh giá</span>
+        <div class="review-stepper">
+          <button class="stepper-btn" id="btn-review-minus" aria-label="Giảm">−</button>
+          <span class="stepper-value" id="review-count">0</span>
+          <button class="stepper-btn stepper-btn-plus" id="btn-review-plus" aria-label="Tăng">+</button>
+        </div>
+        <span class="review-bonus-preview" id="review-bonus-preview">+0đ</span>
+      </div>
     </section>
 
     <!-- ===== ORDER LIST ===== -->

@@ -8,6 +8,7 @@
   'use strict';
 
   var selectedDate = Storage.getTodayStr();
+  var reviewCount = 0;
 
   // ---- Money Formatter ----
   var moneyFormatter = new Intl.NumberFormat('vi-VN');
@@ -101,6 +102,25 @@
       var html = '';
       for (var i = 0; i < orders.length; i++) {
         var order = orders[i];
+
+        // Customer name line (if exists)
+        var customerHtml = '';
+        if (order.customerName) {
+          customerHtml =
+            '<span class="order-customer">👤 ' +
+            order.customerName +
+            '</span>';
+        }
+
+        // Review bonus badge (if > 0)
+        var bonusBadgeHtml = '';
+        if (order.reviewBonus && order.reviewBonus > 0) {
+          bonusBadgeHtml =
+            ' <span class="bonus-badge">+' +
+            formatMoney(order.reviewBonus) +
+            'đ</span>';
+        }
+
         html +=
           '<div class="order-item" data-id="' +
           order.id +
@@ -112,12 +132,15 @@
           (i + 1) +
           '</span>' +
           '<div class="order-details">' +
+          customerHtml +
           '<span class="order-sale">' +
           formatMoney(order.sale_amount) +
           'đ</span>' +
           '<span class="order-commission">+' +
           formatMoney(order.commission) +
-          'đ hoa hồng</span>' +
+          'đ hoa hồng' +
+          bonusBadgeHtml +
+          '</span>' +
           '</div>' +
           '</div>' +
           '<button class="btn-delete" data-id="' +
@@ -197,6 +220,29 @@
     document
       .getElementById('btn-reset')
       .addEventListener('click', handleResetWeek);
+
+    // Review stepper — plus
+    document
+      .getElementById('btn-review-plus')
+      .addEventListener('click', function () {
+        reviewCount++;
+        updateReviewUI();
+      });
+
+    // Review stepper — minus
+    document
+      .getElementById('btn-review-minus')
+      .addEventListener('click', function () {
+        if (reviewCount > 0) reviewCount--;
+        updateReviewUI();
+      });
+  }
+
+  function updateReviewUI() {
+    document.getElementById('review-count').textContent = reviewCount;
+    var bonus = reviewCount * 5000;
+    document.getElementById('review-bonus-preview').textContent =
+      '+' + formatMoney(bonus) + 'đ';
   }
 
   // ---- Event Handlers ----
@@ -254,11 +300,17 @@
       return;
     }
 
-    // Add to storage
-    Storage.addOrder(selectedDate, value);
+    // Get customer name and review count
+    var customerName = document.getElementById('txt-customer-name').value.trim();
 
-    // Clear input & keep focus for fast entry
+    // Add to storage (with new fields)
+    Storage.addOrder(selectedDate, value, customerName, reviewCount);
+
+    // Reset entire form
     input.value = '';
+    document.getElementById('txt-customer-name').value = '';
+    reviewCount = 0;
+    updateReviewUI();
     input.focus();
 
     // Refresh UI

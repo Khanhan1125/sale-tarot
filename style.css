@@ -430,6 +430,126 @@ body::before {
   line-height: 1;
 }
 
+/* ---- Customer Name Input ---- */
+.input-row {
+  margin-top: 10px;
+}
+
+.input-wrapper-full {
+  width: 100%;
+}
+
+.customer-input {
+  font-size: 15px !important;
+  font-weight: 500 !important;
+  min-height: 44px !important;
+}
+
+.customer-input::placeholder {
+  font-size: 14px;
+}
+
+/* ---- Review Stepper ---- */
+.review-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.review-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.review-stepper {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.stepper-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 20px;
+  font-family: var(--font);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.stepper-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+.stepper-btn:active {
+  transform: scale(0.9);
+}
+
+.stepper-btn-plus {
+  color: var(--accent);
+}
+
+.stepper-btn-plus:hover {
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.stepper-value {
+  min-width: 32px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0 4px;
+}
+
+.review-bonus-preview {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+/* ---- Order Customer Name ---- */
+.order-customer {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fbbf24;
+  margin-bottom: 1px;
+  letter-spacing: 0.2px;
+}
+
+/* ---- Review Bonus Badge ---- */
+.bonus-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: var(--radius-pill);
+  padding: 1px 7px;
+  margin-left: 6px;
+  vertical-align: middle;
+  letter-spacing: 0.3px;
+}
+
 /* ---- Order Section ---- */
 .order-section {
   padding-bottom: 0;

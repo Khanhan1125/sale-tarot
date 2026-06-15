@@ -7,7 +7,9 @@
        id: "k7x3m9...",         // unique ID
        date: "2026-06-15",      // ISO date string
        sale_amount: 500000,     // original order amount
-       commission: 125000       // 25% commission
+       commission: 150000,      // total = (sale*0.25) + reviewBonus
+       customerName: "Ngọc",    // optional customer name
+       reviewBonus: 25000       // review count * 5000
      },
      ...
    ]
@@ -18,6 +20,7 @@ var Storage = (function () {
 
   var STORAGE_KEY = 'salary_tracker_orders';
   var COMMISSION_RATE = 0.25;
+  var REVIEW_BONUS_PER = 5000;
 
   // ---- Helpers ----
 
@@ -99,13 +102,19 @@ var Storage = (function () {
     });
   }
 
-  function addOrder(dateStr, saleAmount) {
+  function addOrder(dateStr, saleAmount, customerName, reviewCount) {
     var orders = getAllOrders();
+    customerName = customerName || '';
+    reviewCount = reviewCount || 0;
+    var reviewBonus = Math.round(reviewCount * REVIEW_BONUS_PER);
+    var baseCommission = Math.round(saleAmount * COMMISSION_RATE);
     var newOrder = {
       id: generateId(),
       date: dateStr,
       sale_amount: saleAmount,
-      commission: Math.round(saleAmount * COMMISSION_RATE),
+      commission: baseCommission + reviewBonus,
+      customerName: customerName,
+      reviewBonus: reviewBonus,
     };
     orders.push(newOrder);
     saveAllOrders(orders);
