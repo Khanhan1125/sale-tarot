@@ -179,6 +179,11 @@
         }
       });
 
+    // Live format input with commas as user types
+    document
+      .getElementById('txt-sale-amount')
+      .addEventListener('input', handleInputFormat);
+
     // Delete order — event delegation
     document
       .getElementById('order-list')
@@ -196,9 +201,41 @@
 
   // ---- Event Handlers ----
 
+  // ---- Live format input with commas ----
+
+  function handleInputFormat(e) {
+    var input = e.target;
+    // Get cursor position before formatting
+    var cursorPos = input.selectionStart;
+    var oldValue = input.value;
+    var oldLength = oldValue.length;
+
+    // Strip everything except digits
+    var digits = oldValue.replace(/[^0-9]/g, '');
+
+    // Don't format empty string
+    if (digits === '') {
+      input.value = '';
+      return;
+    }
+
+    // Format with commas
+    var formatted = Number(digits).toLocaleString('en-US');
+    input.value = formatted;
+
+    // Adjust cursor position
+    var newLength = formatted.length;
+    var diff = newLength - oldLength;
+    var newCursor = cursorPos + diff;
+    if (newCursor < 0) newCursor = 0;
+    if (newCursor > newLength) newCursor = newLength;
+    input.setSelectionRange(newCursor, newCursor);
+  }
+
   function handleAddOrder() {
     var input = document.getElementById('txt-sale-amount');
-    var rawValue = input.value.trim();
+    // Strip commas to get raw number
+    var rawValue = input.value.replace(/,/g, '').trim();
 
     if (!rawValue) {
       showToast('⚠️ Vui lòng nhập số tiền!', 'warning');
