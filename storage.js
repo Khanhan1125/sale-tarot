@@ -224,6 +224,7 @@ var Storage = (function () {
   // ---- Public API ----
   return {
     setOnDataChanged: setOnDataChanged,
+    getAllOrders: getAllOrders,
     getTodayStr: getTodayStr,
     getWeekDays: getWeekDays,
     getWeekRange: getWeekRange,
