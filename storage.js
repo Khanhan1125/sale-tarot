@@ -1,45 +1,55 @@
 /* ============================================================
-   STORAGE MODULE — localStorage CRUD for orders
-   ============================================================
-   Data format in localStorage (key: 'salary_tracker_orders'):
-   [
-     {
-       id: "k7x3m9...",         // unique ID
-       date: "2026-06-15",      // ISO date string
-       sale_amount: 500000,     // original order amount
-       commission: 150000,      // total = (sale*0.25) + reviewBonus
-       customerName: "Ngọc",    // optional customer name
-       reviewBonus: 25000       // review count * 5000
-     },
-     ...
-   ]
+   STORAGE MODULE — Firebase Firestore for orders
    ============================================================ */
 
 var Storage = (function () {
   'use strict';
 
-  var STORAGE_KEY = 'salary_tracker_orders';
   var COMMISSION_RATE = 0.25;
   var REVIEW_BONUS_PER = 5000;
 
-  // ---- Helpers ----
+  // Cấu hình Firebase thực tế của Khánh An
+  const firebaseConfig = {
+    apiKey: "AIzaSyDrvTLfvRetZoDOlr-Icx-fTNXMmjEXR_Y",
+    authDomain: "sale-tarot-shared.firebaseapp.com",
+    projectId: "sale-tarot-shared",
+    storageBucket: "sale-tarot-shared.firebasestorage.app",
+    messagingSenderId: "279667166075",
+    appId: "1:279667166075:web:086da8f1fff9983a8e8bde"
+  };
 
-  function generateId() {
-    return Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
-  }
+  // Khởi tạo Firebase Đám mây
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
 
-  function getAllOrders() {
-    try {
-      var data = localStorage.getItem(STORAGE_KEY);
-      return data ? JSON.parse(data) : [];
-    } catch (e) {
-      return [];
+  var cachedOrders = [];
+  var onDataChangedCallback = null;
+  var isLoaded = false;
+
+  // Lắng nghe dữ liệu realtime từ Firestore
+  db.collection('orders').orderBy('createdAt', 'asc').onSnapshot(function(snapshot) {
+    var newOrders = [];
+    snapshot.forEach(function(doc) {
+      var data = doc.data();
+      data.id = doc.id;
+      newOrders.push(data);
+    });
+    cachedOrders = newOrders;
+    isLoaded = true;
+    if (onDataChangedCallback) {
+      onDataChangedCallback();
+    }
+  });
+
+  function setOnDataChanged(cb) {
+    onDataChangedCallback = cb;
+    // Kích hoạt ngay nếu dữ liệu đã tải xong trước khi gắn callback
+    if (isLoaded && cb) {
+      cb();
     }
   }
 
-  function saveAllOrders(orders) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
-  }
+  // ---- Helpers ----
 
   function formatDate(d) {
     var year = d.getFullYear();
@@ -54,13 +64,14 @@ var Storage = (function () {
 
   // ---- Week Calculation ----
 
-  function getCurrentWeekRange() {
+  function getWeekRange(offset) {
+    offset = offset || 0;
     var today = new Date();
     var dayOfWeek = today.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
     var mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
 
     var monday = new Date(today);
-    monday.setDate(today.getDate() + mondayOffset);
+    monday.setDate(today.getDate() + mondayOffset + (offset * 7));
 
     var sunday = new Date(monday);
     sunday.setDate(monday.getDate() + 6);
@@ -71,8 +82,8 @@ var Storage = (function () {
     };
   }
 
-  function getWeekDays() {
-    var range = getCurrentWeekRange();
+  function getWeekDays(offset) {
+    var range = getWeekRange(offset);
     var parts = range.monday.split('-');
     var mondayDate = new Date(
       parseInt(parts[0]),
@@ -94,6 +105,12 @@ var Storage = (function () {
     return days;
   }
 
+  // ---- Internal Data Accessors ----
+
+  function getAllOrders() {
+    return cachedOrders;
+  }
+
   // ---- CRUD ----
 
   function getOrdersByDate(dateStr) {
@@ -103,29 +120,40 @@ var Storage = (function () {
   }
 
   function addOrder(dateStr, saleAmount, customerName, reviewCount) {
-    var orders = getAllOrders();
     customerName = customerName || '';
     reviewCount = reviewCount || 0;
     var reviewBonus = Math.round(reviewCount * REVIEW_BONUS_PER);
     var baseCommission = Math.round(saleAmount * COMMISSION_RATE);
     var newOrder = {
-      id: generateId(),
       date: dateStr,
       sale_amount: saleAmount,
       commission: baseCommission + reviewBonus,
       customerName: customerName,
       reviewBonus: reviewBonus,
+      createdAt: Date.now()
     };
-    orders.push(newOrder);
-    saveAllOrders(orders);
-    return newOrder;
+    
+    // Trả về promise để xử lý UI
+    return db.collection('orders').add(newOrder);
   }
 
   function deleteOrder(orderId) {
-    var orders = getAllOrders().filter(function (o) {
-      return o.id !== orderId;
-    });
-    saveAllOrders(orders);
+    return db.collection('orders').doc(orderId).delete();
+  }
+
+  function updateOrder(orderId, saleAmount, customerName, reviewCount) {
+    customerName = customerName || '';
+    reviewCount = reviewCount || 0;
+    var reviewBonus = Math.round(reviewCount * REVIEW_BONUS_PER);
+    var baseCommission = Math.round(saleAmount * COMMISSION_RATE);
+    var updatedData = {
+      sale_amount: saleAmount,
+      commission: baseCommission + reviewBonus,
+      customerName: customerName,
+      reviewBonus: reviewBonus
+    };
+    
+    return db.collection('orders').doc(orderId).update(updatedData);
   }
 
   // ---- Aggregations ----
@@ -136,8 +164,8 @@ var Storage = (function () {
     }, 0);
   }
 
-  function getWeeklyTotal() {
-    var range = getCurrentWeekRange();
+  function getWeeklyTotal(offset) {
+    var range = getWeekRange(offset);
     var orders = getAllOrders().filter(function (o) {
       return o.date >= range.monday && o.date <= range.sunday;
     });
@@ -146,8 +174,8 @@ var Storage = (function () {
     }, 0);
   }
 
-  function getWeeklyRevenue() {
-    var range = getCurrentWeekRange();
+  function getWeeklyRevenue(offset) {
+    var range = getWeekRange(offset);
     var orders = getAllOrders().filter(function (o) {
       return o.date >= range.monday && o.date <= range.sunday;
     });
@@ -156,32 +184,58 @@ var Storage = (function () {
     }, 0);
   }
 
-  function getWeeklyOrderCount() {
-    var range = getCurrentWeekRange();
+  function getWeeklyOrderCount(offset) {
+    var range = getWeekRange(offset);
     return getAllOrders().filter(function (o) {
       return o.date >= range.monday && o.date <= range.sunday;
     }).length;
   }
 
-  function resetWeek() {
-    var range = getCurrentWeekRange();
-    var orders = getAllOrders().filter(function (o) {
-      return o.date < range.monday || o.date > range.sunday;
+  function resetWeek(offset) {
+    var range = getWeekRange(offset);
+    var ordersToDelete = getAllOrders().filter(function (o) {
+      return o.date >= range.monday && o.date <= range.sunday;
     });
-    saveAllOrders(orders);
+    
+    var batch = db.batch();
+    ordersToDelete.forEach(function(o) {
+      batch.delete(db.collection('orders').doc(o.id));
+    });
+    return batch.commit();
+  }
+
+  function cleanupOldData() {
+    var cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 14);
+    var cutoffStr = formatDate(cutoff);
+    var ordersToDelete = getAllOrders().filter(function (o) {
+      return o.date < cutoffStr;
+    });
+    
+    if (ordersToDelete.length > 0) {
+      var batch = db.batch();
+      ordersToDelete.forEach(function(o) {
+        batch.delete(db.collection('orders').doc(o.id));
+      });
+      batch.commit();
+    }
   }
 
   // ---- Public API ----
   return {
+    setOnDataChanged: setOnDataChanged,
     getTodayStr: getTodayStr,
     getWeekDays: getWeekDays,
+    getWeekRange: getWeekRange,
     getOrdersByDate: getOrdersByDate,
     addOrder: addOrder,
+    updateOrder: updateOrder,
     deleteOrder: deleteOrder,
     getDailyTotal: getDailyTotal,
     getWeeklyTotal: getWeeklyTotal,
     getWeeklyRevenue: getWeeklyRevenue,
     getWeeklyOrderCount: getWeeklyOrderCount,
     resetWeek: resetWeek,
+    cleanupOldData: cleanupOldData,
   };
 })();

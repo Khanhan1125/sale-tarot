@@ -9,6 +9,9 @@
 
   var selectedDate = Storage.getTodayStr();
   var reviewCount = 0;
+  var weekOffset = 0; // 0 = tuần này, -1 = tuần trước
+  var editingOrderId = null;
+  var editReviewCount = 0;
 
   // ---- Money Formatter ----
   var moneyFormatter = new Intl.NumberFormat('vi-VN');
@@ -21,9 +24,15 @@
   // ---- Init ----
   function initApp() {
     renderDaySelector();
-    renderAll();
+    updateWeekNavUI();
     bindEvents();
-    scrollToActiveDay();
+
+    // Firebase real-time listener callback
+    Storage.setOnDataChanged(function() {
+      renderAll();
+      scrollToActiveDay();
+      Storage.cleanupOldData(); // Dọn dẹp dữ liệu cũ
+    });
   }
 
   // ---- Render Functions ----
@@ -34,9 +43,9 @@
   }
 
   function renderWeeklyStats() {
-    var total = Storage.getWeeklyTotal();
-    var revenue = Storage.getWeeklyRevenue();
-    var count = Storage.getWeeklyOrderCount();
+    var total = Storage.getWeeklyTotal(weekOffset);
+    var revenue = Storage.getWeeklyRevenue(weekOffset);
+    var count = Storage.getWeeklyOrderCount(weekOffset);
 
     var salaryEl = document.getElementById('weekly-salary');
     salaryEl.textContent = formatMoney(total) + 'đ';
@@ -51,7 +60,7 @@
 
   function renderDaySelector() {
     var container = document.getElementById('day-selector');
-    var days = Storage.getWeekDays();
+    var days = Storage.getWeekDays(weekOffset);
     var todayStr = Storage.getTodayStr();
 
     var html = '';
@@ -143,6 +152,17 @@
           '</span>' +
           '</div>' +
           '</div>' +
+          '<div class="order-actions">' +
+          '<button class="btn-edit" data-id="' +
+          order.id +
+          '" aria-label="Sửa đơn hàng ' +
+          (i + 1) +
+          '">' +
+          '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+          '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>' +
+          '<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>' +
+          '</svg>' +
+          '</button>' +
           '<button class="btn-delete" data-id="' +
           order.id +
           '" aria-label="Xóa đơn hàng ' +
@@ -153,6 +173,7 @@
           '<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>' +
           '</svg>' +
           '</button>' +
+          '</div>' +
           '</div>';
       }
       container.innerHTML = html;
@@ -207,13 +228,19 @@
       .getElementById('txt-sale-amount')
       .addEventListener('input', handleInputFormat);
 
-    // Delete order — event delegation
+    // Edit / Delete order — event delegation
     document
       .getElementById('order-list')
       .addEventListener('click', function (e) {
-        var btn = e.target.closest('.btn-delete');
-        if (!btn) return;
-        handleDeleteOrder(btn.dataset.id);
+        var btnDelete = e.target.closest('.btn-delete');
+        if (btnDelete) {
+          handleDeleteOrder(btnDelete.dataset.id);
+          return;
+        }
+        var btnEdit = e.target.closest('.btn-edit');
+        if (btnEdit) {
+          openEditModal(btnEdit.dataset.id);
+        }
       });
 
     // Reset week
@@ -235,6 +262,33 @@
       .addEventListener('click', function () {
         if (reviewCount > 0) reviewCount--;
         updateReviewUI();
+      });
+
+    // Edit Modal events
+    document.getElementById('btn-edit-cancel').addEventListener('click', closeEditModal);
+    document.getElementById('btn-edit-save').addEventListener('click', handleSaveEdit);
+    document.getElementById('edit-sale-amount').addEventListener('input', handleInputFormat);
+    
+    document.getElementById('btn-edit-review-plus').addEventListener('click', function() {
+      editReviewCount++;
+      document.getElementById('edit-review-count').textContent = editReviewCount;
+    });
+    
+    document.getElementById('btn-edit-review-minus').addEventListener('click', function() {
+      if (editReviewCount > 0) editReviewCount--;
+      document.getElementById('edit-review-count').textContent = editReviewCount;
+    });
+
+    // Week navigation
+    document
+      .getElementById('btn-week-prev')
+      .addEventListener('click', function () {
+        handleWeekNav(-1);
+      });
+    document
+      .getElementById('btn-week-next')
+      .addEventListener('click', function () {
+        handleWeekNav(0);
       });
   }
 
@@ -304,19 +358,20 @@
     var customerName = document.getElementById('txt-customer-name').value.trim();
 
     // Add to storage (with new fields)
-    Storage.addOrder(selectedDate, value, customerName, reviewCount);
+    Storage.addOrder(selectedDate, value, customerName, reviewCount)
+      .then(function() {
+        showToast('✅ Đã thêm đơn ' + formatMoney(value) + 'đ', 'success');
+      })
+      .catch(function(err) {
+        showToast('❌ Lỗi thêm đơn: ' + err.message, 'error');
+      });
 
-    // Reset entire form
+    // Reset entire form immediately for fast entry
     input.value = '';
     document.getElementById('txt-customer-name').value = '';
     reviewCount = 0;
     updateReviewUI();
     input.focus();
-
-    // Refresh UI
-    renderAll();
-
-    showToast('✅ Đã thêm đơn ' + formatMoney(value) + 'đ', 'success');
   }
 
   function handleDeleteOrder(orderId) {
@@ -327,23 +382,102 @@
     item.classList.add('removing');
 
     setTimeout(function () {
-      Storage.deleteOrder(orderId);
-      renderAll();
+      Storage.deleteOrder(orderId).catch(function(err) {
+        showToast('❌ Lỗi xóa đơn: ' + err.message, 'error');
+        renderAll(); // Phục hồi UI nếu lỗi
+      });
     }, 280);
   }
 
+  // ---- Edit Modal Functions ----
+
+  function openEditModal(orderId) {
+    var orders = Storage.getAllOrders();
+    var order = null;
+    for (var i = 0; i < orders.length; i++) {
+      if (orders[i].id === orderId) {
+        order = orders[i];
+        break;
+      }
+    }
+    if (!order) return;
+
+    editingOrderId = orderId;
+    
+    // Populate form
+    var inputSale = document.getElementById('edit-sale-amount');
+    inputSale.value = formatMoney(order.sale_amount);
+    document.getElementById('edit-customer-name').value = order.customerName || '';
+    
+    // Review count backward calculation (reviewBonus = count * 5000)
+    editReviewCount = (order.reviewBonus || 0) / 5000;
+    document.getElementById('edit-review-count').textContent = editReviewCount;
+
+    var modal = document.getElementById('edit-modal');
+    modal.classList.add('show');
+    inputSale.focus();
+  }
+
+  function closeEditModal() {
+    var modal = document.getElementById('edit-modal');
+    modal.classList.remove('show');
+    editingOrderId = null;
+  }
+
+  function handleSaveEdit() {
+    if (!editingOrderId) return;
+
+    var input = document.getElementById('edit-sale-amount');
+    var rawValue = input.value.replace(/,/g, '').trim();
+
+    if (!rawValue) {
+      showToast('⚠️ Vui lòng nhập số tiền!', 'warning');
+      input.focus();
+      shakeElement(document.getElementById('edit-modal').querySelector('.modal-content'));
+      return;
+    }
+
+    var value = parseFloat(rawValue);
+    if (isNaN(value) || value <= 0) {
+      showToast('⚠️ Số tiền phải lớn hơn 0!', 'warning');
+      input.focus();
+      input.select();
+      shakeElement(document.getElementById('edit-modal').querySelector('.modal-content'));
+      return;
+    }
+
+    var customerName = document.getElementById('edit-customer-name').value.trim();
+    var btnSave = document.getElementById('btn-edit-save');
+    btnSave.disabled = true;
+
+    Storage.updateOrder(editingOrderId, value, customerName, editReviewCount)
+      .then(function() {
+        showToast('✅ Đã cập nhật đơn hàng!', 'success');
+        closeEditModal();
+      })
+      .catch(function(err) {
+        showToast('❌ Lỗi cập nhật: ' + err.message, 'error');
+      })
+      .finally(function() {
+        btnSave.disabled = false;
+      });
+  }
+
   function handleResetWeek() {
+    var label = weekOffset === 0 ? 'tuần này' : 'tuần trước';
     if (
       !confirm(
-        '⚠️ XÓA TOÀN BỘ dữ liệu tuần này?\n\nHành động này không thể hoàn tác!'
+        '⚠️ XÓA TOÀN BỘ dữ liệu ' + label + '?\n\nHành động này không thể hoàn tác!'
       )
     ) {
       return;
     }
 
-    Storage.resetWeek();
-    renderAll();
-    showToast('🔄 Đã reset tuần mới!', 'info');
+    Storage.resetWeek(weekOffset).then(function() {
+      showToast('🔄 Đã reset ' + label + '!', 'info');
+    }).catch(function(err) {
+      showToast('❌ Lỗi reset: ' + err.message, 'error');
+    });
   }
 
   // ---- Toast ----
@@ -381,6 +515,66 @@
       },
       { once: true }
     );
+  }
+
+  // ---- Week Navigation ----
+
+  function handleWeekNav(newOffset) {
+    // Giới hạn: chỉ 0 (tuần này) hoặc -1 (tuần trước)
+    if (newOffset < -1 || newOffset > 0) return;
+    weekOffset = newOffset;
+
+    // Auto-chọn ngày đầu tuần nếu chuyển sang tuần khác
+    var days = Storage.getWeekDays(weekOffset);
+    var todayStr = Storage.getTodayStr();
+
+    // Nếu tuần hiện tại → chọn ngày hôm nay
+    // Nếu tuần trước → chọn thứ Hai của tuần đó
+    if (weekOffset === 0) {
+      selectedDate = todayStr;
+    } else {
+      selectedDate = days[0].dateStr; // Thứ Hai tuần trước
+    }
+
+    renderDaySelector();
+    renderAll();
+    updateWeekNavUI();
+    scrollToActiveDay();
+  }
+
+  function updateWeekNavUI() {
+    var btnPrev = document.getElementById('btn-week-prev');
+    var btnNext = document.getElementById('btn-week-next');
+    var label = document.getElementById('week-nav-label');
+    var inputSection = document.querySelector('.input-section');
+
+    // Cập nhật label
+    if (weekOffset === 0) {
+      var range = Storage.getWeekRange(0);
+      label.textContent = '📅 Tuần này';
+      label.classList.remove('week-nav-label--past');
+    } else {
+      var range = Storage.getWeekRange(-1);
+      label.textContent = '📅 Tuần trước';
+      label.classList.add('week-nav-label--past');
+    }
+
+    // Hiển thị khoảng ngày
+    var mondayParts = range.monday.split('-');
+    var sundayParts = range.sunday.split('-');
+    var dateRange = mondayParts[2] + '/' + mondayParts[1] +
+      ' – ' + sundayParts[2] + '/' + sundayParts[1];
+    label.innerHTML = (weekOffset === 0 ? '📅 Tuần này' : '📅 Tuần trước') +
+      ' <span class="week-nav-date-range">' + dateRange + '</span>';
+
+    // Enable/disable buttons
+    btnPrev.disabled = (weekOffset <= -1);
+    btnNext.disabled = (weekOffset >= 0);
+
+    // Ẩn input section khi xem tuần trước (không cho thêm đơn vào tuần cũ)
+    if (inputSection) {
+      inputSection.style.display = (weekOffset === 0) ? '' : 'none';
+    }
   }
 
   // ---- Bootstrap ----
